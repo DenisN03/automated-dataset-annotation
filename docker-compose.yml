@@ -1,0 +1,18 @@
+version: '2.4'
+services:
+  ada:
+    image: automated-dataset-annotation
+    container_name: automated-dataset-annotation
+    runtime: nvidia
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+    - JUPYTER_TOKEN=automated-dataset-annotation
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data/:/app/data/
+      - ./notebooks/:/app/notebooks/
+      - ./src/:/app/src/
+    restart: always
