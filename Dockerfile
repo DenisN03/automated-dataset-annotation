@@ -17,6 +17,10 @@ RUN mkdir weights && cd weights && wget -q https://github.com/IDEA-Research/Grou
 
 RUN git clone https://github.com/IDEA-Research/GroundingDINO && cd /root/GroundingDINO && git checkout feature/more_compact_inference_api
 
+RUN python3 -m pip install 'git+https://github.com/facebookresearch/segment-anything.git'
+
+RUN cd weights && wget -q https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+
 WORKDIR /app
 
 CMD ["jupyter", "lab"]

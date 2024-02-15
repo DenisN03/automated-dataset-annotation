@@ -1,7 +1,10 @@
 import os
+from typing import List, Optional
 
+import cv2
 import numpy as np
 import supervision as sv
+from segment_anything import SamPredictor
 
 
 def create_dir(path: str) -> None:
@@ -25,6 +28,19 @@ def save_yolo_detection(path, name, detections, width, height) -> None:
             f.write(str(class_id) + " " + " ".join(yolo_label) + "\n")
 
         if len(detections.xyxy) == 0:
+            f.write("\n")
+            
+
+def save_yolo_polygon(path, name, polygons, width, height) -> None:
+    # save detections to file
+    with open(path + name + ".txt", "w") as f:
+        
+        for class_id, polygon in polygons:
+            yolo_label = [(point[0]/width,point[1]/height) for point in polygon[0].tolist()]
+            yolo_label = [str(x).replace("(","").replace(")","") for x in yolo_label]
+            f.write(str(class_id) + " " + " ".join(yolo_label) + "\n")
+
+        if len(polygons) == 0:
             f.write("\n")
           
         
@@ -95,3 +111,27 @@ def combine_detections(detections_list, overwrite_class_ids):
         class_id=class_id,
         tracker_id=tracker_id,
     )
+
+
+def segment(sam_predictor: SamPredictor, image: np.ndarray, xyxy: np.ndarray) -> np.ndarray:
+    sam_predictor.set_image(image)
+    result_masks = []
+    for box in xyxy:
+        masks, scores, logits = sam_predictor.predict(
+            box=box,
+            multimask_output=True
+        )
+        index = np.argmax(scores)
+        result_masks.append(masks[index])
+    return np.array(result_masks)
+
+
+def yolo2bb(box, dw, dh):
+    class_id, x_center, y_center, w, h = box.strip().split()
+    x_center, y_center, w, h = float(x_center), float(y_center), float(w), float(h)
+    x_center = round(x_center * dw)
+    y_center = round(y_center * dh)
+    w = round(w * dw)
+    h = round(h * dh)
+    x = round(x_center - w / 2)
+    y = round(y_center - h / 2)

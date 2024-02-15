@@ -1,23 +1,27 @@
 import sys
 
 import cv2
+import numpy as np
 from tqdm import tqdm
+import supervision as sv
 
 sys.path.append('/app/')
 import src.utils as utils
 
 
-def process(image_paths, classes, model, BOX_TRESHOLD, TEXT_TRESHOLD, SOURCE_DIRECTORY_PATH):
+def process_gd(image_paths, classes, model, BOX_TRESHOLD, TEXT_TRESHOLD, SOURCE_DIRECTORY_PATH):
     
     # создание необходимых директорий
     utils.create_dir(SOURCE_DIRECTORY_PATH)
     utils.create_dir(SOURCE_DIRECTORY_PATH + 'obj_train_data/')
 
-    detections = []
+    detections = {}
 
     for image_path in tqdm(image_paths):
+        
+        image_path = str(image_path)
 
-        image = cv2.imread(str(image_path))
+        image = cv2.imread(image_path)
 
         height, width, depth = image.shape
 
@@ -48,13 +52,52 @@ def process(image_paths, classes, model, BOX_TRESHOLD, TEXT_TRESHOLD, SOURCE_DIR
                     )
 
             # drop potential double detections
-            detections_list = detections_list.with_nms(threshold=0.5, class_agnostic=True)
+            sv_detections = detections_list.with_nms(threshold=0.5, class_agnostic=True)
 
             # save detections to file
-            utils.save_yolo_detection(SOURCE_DIRECTORY_PATH, name, detections_list, width, height)
+            utils.save_yolo_detection(SOURCE_DIRECTORY_PATH, name, sv_detections, width, height)
 
-            detections.append(detections_list)
+            detections[image_path] = sv_detections
         else:
-            detections.append(None)
+            detections[image_path] = None
             
+    return detections
+
+
+def process_sam(detections, model, folder, save_mask: bool, SOURCE_DIRECTORY_PATH):
+    
+    utils.create_dir(SOURCE_DIRECTORY_PATH)
+    utils.create_dir(SOURCE_DIRECTORY_PATH + f'{folder}/')
+    
+    for image_path, detection in tqdm(detections.items()):
+        
+        image_path = str(image_path)
+        
+        name = utils.get_name(image_path)
+        
+        image = cv2.imread(image_path)
+        
+        height, width, depth = image.shape
+    
+        detection.mask = utils.segment(
+                    sam_predictor=model,
+                    image=cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
+                    xyxy=detection.xyxy
+                )
+        
+        polygons = []
+        for mask, class_id in zip(detection.mask, detection.class_id):
+            polygon = sv.dataset.ultils.approximate_mask_with_polygons(
+                    mask=mask,
+                    min_image_area_percentage=0.00, # 0.002
+                    max_image_area_percentage=1.00, # 0.80
+                    approximation_percentage=0.75,
+                )
+            polygons.append([class_id, polygon])
+        
+        utils.save_yolo_polygon(SOURCE_DIRECTORY_PATH + f'{folder}/', name, polygons, width, height)
+        
+        if save_mask == False:
+            detection.mask = []
+    
     return detections
