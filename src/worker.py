@@ -11,7 +11,7 @@ import src.utils as utils
 
 def process_gd(image_paths, classes, model, BOX_TRESHOLD, TEXT_TRESHOLD, SOURCE_DIRECTORY_PATH):
     
-    # создание необходимых директорий
+    # create dirs
     utils.create_dir(SOURCE_DIRECTORY_PATH)
     utils.create_dir(SOURCE_DIRECTORY_PATH + 'obj_train_data/')
 
